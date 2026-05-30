@@ -28,8 +28,11 @@
             border-radius: 30px;
             cursor: pointer;
             transition: transform 0.2s, background-color 0.2s;
+            margin: 10px;
         }
         .btn:hover { transform: scale(1.05); background-color: #1ed760; }
+        .btn-skip { background-color: #555555; font-size: 1rem; padding: 10px 25px; }
+        .btn-skip:hover { background-color: #777777; }
         #status { margin-top: 20px; color: #1DB954; font-size: 1.1rem; font-weight: bold; text-align: center; line-height: 1.6; }
     </style>
 </head>
@@ -62,7 +65,7 @@
         let audioPlayer = new Audio();
         let accessToken = '';
 
-        // --- PKCE SIKKERHEDS-HJÆLPERE ---
+        // --- PKCE LOGIND SYSTEM ---
         function generateRandomString(length) {
             let text = '';
             let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -83,12 +86,10 @@
             return base64urlencode(digest);
         }
 
-        // --- SØG EFTER RETURNERET KODE ELLER TOKEN ---
         async function tjekSpotifyForbindelse() {
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
 
-            // Hvis vi allerede har et token gemt i denne session
             if (sessionStorage.getItem('spotify_access_token')) {
                 accessToken = sessionStorage.getItem('spotify_access_token');
                 statusDiv.innerText = "Forbindelse intakt! Klar til at køre.";
@@ -96,9 +97,8 @@
                 return;
             }
 
-            // Hvis vi lige er landet tilbage med en 'code'
             if (code) {
-                statusDiv.innerText = "Veksler sikkerhedskode til adgang...";
+                statusDiv.innerText = "Henter adgang fra Spotify...";
                 let codeVerifier = localStorage.getItem('code_verifier');
 
                 let body = new URLSearchParams({
@@ -122,26 +122,22 @@
                         sessionStorage.setItem('spotify_access_token', accessToken);
                         statusDiv.innerText = "Forbindelse oprettet!";
                         startBtn.innerText = "AFSPIL NU";
-                        window.history.pushState({}, document.title, window.location.pathname); // Rens URL
+                        window.history.pushState({}, document.title, window.location.pathname);
                     } else {
-                        statusDiv.innerText = "Kunne ikke hente adgang. Prøv igen.";
+                        statusDiv.innerText = "Kunne ikke logge ind. Prøv igen.";
                     }
                 } catch (err) {
-                    statusDiv.innerText = "Fejl ved netværkskald til Spotify.";
+                    statusDiv.innerText = "Netværksfejl ved hentning af token.";
                 }
             }
         }
 
-        // Kør tjekket med det samme siden indlæses
         tjekSpotifyForbindelse();
 
-        // --- KNAPHÅNDTERING ---
         startBtn.addEventListener('click', async () => {
             if (!accessToken) {
-                // START LOGIN-PROCES (Med det tvungne 'code' format via PKCE)
                 const codeVerifier = generateRandomString(128);
                 const codeChallenge = await generateCodeChallenge(codeVerifier);
-                
                 localStorage.setItem('code_verifier', codeVerifier);
                 
                 const scopes = 'user-modify-playback-state user-read-playback-state';
@@ -153,7 +149,6 @@
                     code_challenge_method: 'S256',
                     code_challenge: codeChallenge
                 });
-                
                 window.location = 'https://accounts.spotify.com/authorize?' + args;
             } else {
                 startBtn.style.display = 'none'; 
@@ -161,7 +156,7 @@
             }
         });
 
-        // --- AFSPILNINGS-LOGIK ---
+        // --- STYRING AF AFSPILNING ---
         function koerNæsteTrin() {
             if (currentIndex >= PLAYLIST.length) {
                 statusDiv.innerText = "Udsendelsen er slut. Tak fordi du lyttede med!";
@@ -171,10 +166,11 @@
             const nuværende = PLAYLIST[currentIndex];
 
             if (nuværende.type === 'speak') {
-                statusDiv.innerText = `Spiller din speak (${Math.floor(currentIndex/2) + 1}/4)...`;
+                statusDiv.innerHTML = `Spiller din speak (${Math.floor(currentIndex/2) + 1}/4)...<br><button class="btn btn-skip" onclick="StopOgNæste()">Spring speak over ➔</button>`;
                 
                 audioPlayer.src = nuværende.url + '?v=' + Math.random();
                 
+                // Pause Spotify mens speaken kører
                 if (accessToken) {
                     fetch('https://api.spotify.com/v1/me/player/pause', {
                         method: 'PUT',
@@ -196,6 +192,7 @@
             } else if (nuværende.type === 'track') {
                 statusDiv.innerText = "Sender sang til din Spotify-app...";
                 
+                // Start afspilning af det præcise nummer på den aktive Spotify-enhed
                 fetch('https://api.spotify.com/v1/me/player/play', {
                     method: 'PUT',
                     body: JSON.stringify({ uris: [nuværende.uri] }),
@@ -205,13 +202,19 @@
                     }
                 }).then(response => {
                     if (response.status === 404) {
-                        statusDiv.innerHTML = "<span style='color: #ff4444;'>Fejl: Åbn Spotify på din enhed, og tryk 'play' på en sang først!</span><br><button class='btn' style='padding:10px 20px; font-size:1rem; margin-top:10px;' onclick='GenskydNummer()'>Prøv igen</button>";
+                        statusDiv.innerHTML = "<span style='color: #ff4444;'>Fejl: Åbn din Spotify-app på telefonen eller PC, og tryk 'Play' på en tilfældig sang først!</span><br><button class='btn' style='padding:10px 20px; font-size:1rem; margin-top:10px;' onclick='GenskydNummer()'>Prøv igen</button>";
                     } else {
                         currentIndex++;
                         statusDiv.innerHTML = `Hører nu musik via Spotify.<br><button class="btn" style="padding:10px 20px; font-size:1rem; margin-top:10px;" onclick='ManuelNæste()'>Klik for næste speak</button>`;
                     }
                 });
             }
+        }
+
+        function StopOgNæste() {
+            audioPlayer.pause();
+            currentIndex++;
+            koerNæsteTrin();
         }
 
         function GenskydNummer() {
