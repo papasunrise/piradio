@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piradio</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 { font-size: 3rem; margin-bottom: 10px; color: #1DB954; }
+        p { color: #b3b3b3; font-size: 1.2rem; margin-bottom: 30px; }
+        .btn {
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: scale(1.05); background-color: #1ed760; }
+        #status { margin-top: 20px; color: #1DB954; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>PIRADIO</h1>
+    <p>Velkommen til dit on-demand radioprogram</p>
+    
+    <button class="btn" id="startBtn">START PROGRAMMET</button>
+    <div id="status"></div>
+
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+
+    <script>
+        // HER INDSÆTTER VI DINE UNIKKE OPLYSNINGER
+        const CLIENT_ID = '2380f59802134fd89e665f1966cab9b4'; 
+        const REDIRECT_URI = 'https://papasunrise.github.io/piradio/';
+        
+        // TEST-FILER (Vi skifter disse ud med dine rigtige sange/speaks bagefter)
+        const TEST_SPEAK = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'; // En tilfældig MP3-testlyd
+        const TEST_SPOTIFY_TRACK = 'spotify:track:4pt76R6w96fKjSjR7uL34m'; // En test-sang fra Spotify
+
+        const startBtn = document.getElementById('startBtn');
+        const statusDiv = document.getElementById('status');
+        
+        let audioPlayer = new Audio();
+        let accessToken = '';
+
+        // 1. Tjek om vi lige er kommet tilbage fra Spotify-login (vi leder efter en token i URL'en)
+        const hash = window.location.hash.substring(1).split('&').reduce(function (initial, item) {
+            if (item) {
+                var parts = item.split('=');
+                initial[parts[0]] = decodeURIComponent(parts[1]);
+            }
+            return initial;
+        }, {});
+        window.location.hash = "";
+
+        if (hash.access_token) {
+            accessToken = hash.access_token;
+            statusDiv.innerText = "Forbundet til Spotify! Klar til afspilning.";
+            startBtn.innerText = "AFSPIL NU";
+        }
+
+        // 2. Hvad sker der, når man trykker på knappen?
+        startBtn.addEventListener('click', () => {
+            if (!accessToken) {
+                // Hvis ikke logget ind, send brugeren til Spotify login
+                const scopes = 'user-modify-playback-state user-read-playback-state';
+                window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=token`;
+            } else {
+                // Hvis logget ind, start radio-sekvensen!
+                afspilRadioProgram();
+            }
+        });
+
+        // 3. Selve logikken der styrer rækkefølgen
+        function afspilRadioProgram() {
+            statusDiv.innerText = "Spiller radio-speak...";
+            audioPlayer.src = TEST_SPEAK;
+            audioPlayer.play();
+
+            // Sæt Spotify på pause på lytterens konto, mens speaken kører (just-in-case)
+            fetch('https://api.spotify.com/v1/me/player/pause', {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+
+            // NÅR SPEAKEN ER SLUT -> Start Spotify-sangen automatisk!
+            audioPlayer.onended = function() {
+                statusDiv.innerText = "Speaken er slut! Starter sang på Spotify...";
+                
+                fetch('https://api.spotify.com/v1/me/player/play', {
+                    method: 'PUT',
+                    body: JSON.stringify({ uris: [TEST_SPOTIFY_TRACK] }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        statusDiv.innerText = "Hører nu musik via Spotify.";
+                    } else {
+                        statusDiv.innerText = "Husk at have Spotify tændt på en af dine enheder!";
+                    }
+                });
+            };
+        }
+    </script>
+</body>
+</html>
