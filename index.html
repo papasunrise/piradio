@@ -79,8 +79,7 @@
             if (!accessToken) {
                 // Hvis ikke logget ind, send brugeren til Spotify login
                 const scopes = 'user-modify-playback-state user-read-playback-state';
-                window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=token`;
-            } else {
+                window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code`;
                 // Hvis logget ind, start radio-sekvensen!
                 afspilRadioProgram();
             }
