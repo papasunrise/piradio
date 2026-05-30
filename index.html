@@ -65,7 +65,6 @@
         let audioPlayer = new Audio();
         let accessToken = '';
 
-        // --- PKCE LOGIND SYSTEM ---
         function generateRandomString(length) {
             let text = '';
             let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -124,7 +123,7 @@
                         startBtn.innerText = "AFSPIL NU";
                         window.history.pushState({}, document.title, window.location.pathname);
                     } else {
-                        statusDiv.innerText = "Kunne ikke logge ind. Prøv igen.";
+                        statusDiv.innerText = "Spotify afviste login: " + (data.error_description || data.error);
                     }
                 } catch (err) {
                     statusDiv.innerText = "Netværksfejl ved hentning af token.";
@@ -156,7 +155,6 @@
             }
         });
 
-        // --- STYRING AF AFSPILNING ---
         function koerNæsteTrin() {
             if (currentIndex >= PLAYLIST.length) {
                 statusDiv.innerText = "Udsendelsen er slut. Tak fordi du lyttede med!";
@@ -170,7 +168,6 @@
                 
                 audioPlayer.src = nuværende.url + '?v=' + Math.random();
                 
-                // Pause Spotify mens speaken kører
                 if (accessToken) {
                     fetch('https://api.spotify.com/v1/me/player/pause', {
                         method: 'PUT',
@@ -192,7 +189,6 @@
             } else if (nuværende.type === 'track') {
                 statusDiv.innerText = "Sender sang til din Spotify-app...";
                 
-                // Start afspilning af det præcise nummer på den aktive Spotify-enhed
                 fetch('https://api.spotify.com/v1/me/player/play', {
                     method: 'PUT',
                     body: JSON.stringify({ uris: [nuværende.uri] }),
@@ -203,6 +199,8 @@
                 }).then(response => {
                     if (response.status === 404) {
                         statusDiv.innerHTML = "<span style='color: #ff4444;'>Fejl: Åbn din Spotify-app på telefonen eller PC, og tryk 'Play' på en tilfældig sang først!</span><br><button class='btn' style='padding:10px 20px; font-size:1rem; margin-top:10px;' onclick='GenskydNummer()'>Prøv igen</button>";
+                    } else if (response.status === 403) {
+                        statusDiv.innerHTML = "<span style='color: #ff4444;'>Fejl 403: Du skal bruge en Spotify Premium-konto til API-styring.</span>";
                     } else {
                         currentIndex++;
                         statusDiv.innerHTML = `Hører nu musik via Spotify.<br><button class="btn" style="padding:10px 20px; font-size:1rem; margin-top:10px;" onclick='ManuelNæste()'>Klik for næste speak</button>`;
