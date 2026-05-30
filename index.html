@@ -2,56 +2,48 @@
 <html lang="da">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Min Radiostation</title>
+    <title>Min Radio</title>
     <style>
-        body { 
-            background-color: #121212; 
-            color: #ffffff; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            font-family: sans-serif; 
-            margin: 0;
-        }
-        .player-box { 
-            background-color: #181818; 
-            padding: 30px; 
-            border-radius: 20px; 
-            text-align: center; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        audio { width: 100%; margin-top: 20px; }
+        body { background: #121212; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
+        .player-box { background: #181818; padding: 30px; border-radius: 20px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="player-box">
-        <h2 id="status">Velkommen til min Radio</h2>
+        <h2 id="status">Radioen er klar</h2>
         
-        <audio id="speakPlayer" controls onended="skiftTilMusik()">
-            <source src="DIN_LINK_TIL_SPEAK_HER.mp3" type="audio/mpeg">
-        </audio>
+        <audio id="speakPlayer" controls></audio>
 
         <div id="spotifyContainer" style="display:none; margin-top: 20px;">
-            <iframe 
-                src="https://open.spotify.com/embed/playlist/21f3k61sSWXRk2O6ZtoPu0?utm_source=generator" 
-                width="300" height="380" frameBorder="0" allowfullscreen="" 
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                loading="lazy">
-            </iframe>
+            <iframe src="https://open.spotify.com/embed/playlist/21f3k61sSWXRk2O6ZtoPu0" 
+                    width="300" height="380" frameborder="0" allow="autoplay"></iframe>
         </div>
     </div>
 
     <script>
-        function skiftTilMusik() {
-            document.getElementById('status').innerText = "Nu spiller musikken!";
-            document.getElementById('speakPlayer').style.display = 'none';
-            document.getElementById('spotifyContainer').style.display = 'block';
-        }
-    </script>
+        const speaks = ["speak_1.mp3", "speak_2.mp3", "speak3.mp3", "speak_4.mp3"];
+        let currentSpeak = 0;
+        const audio = document.getElementById('speakPlayer');
+        const statusText = document.getElementById('status');
 
+        // Start første fil
+        audio.src = speaks[currentSpeak];
+
+        audio.onended = function() {
+            currentSpeak++;
+            if (currentSpeak < speaks.length) {
+                // Næste speak
+                audio.src = speaks[currentSpeak];
+                audio.play();
+                statusText.innerText = "Spiller speak " + (currentSpeak + 1);
+            } else {
+                // Alle speaks færdige - Vis Spotify
+                document.getElementById('speakPlayer').style.display = 'none';
+                document.getElementById('spotifyContainer').style.display = 'block';
+                statusText.innerText = "Nu spiller musikken!";
+            }
+        };
+    </script>
 </body>
 </html>
