@@ -3,225 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piradio</title>
+    <title>Min Radiostation</title>
     <style>
         body {
-            background-color: #121212;
-            color: #ffffff;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-family: sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
+            background-color: #121212;
+            color: white;
             margin: 0;
         }
-        h1 { font-size: 3rem; margin-bottom: 10px; color: #1DB954; letter-spacing: 2px; }
-        p { color: #b3b3b3; font-size: 1.2rem; margin-bottom: 30px; }
-        .btn {
-            background-color: #1DB954;
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 1.3rem;
-            font-weight: bold;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: transform 0.2s, background-color 0.2s;
-            margin: 10px;
+        .container {
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
         }
-        .btn:hover { transform: scale(1.05); background-color: #1ed760; }
-        .btn-skip { background-color: #555555; font-size: 1rem; padding: 10px 25px; }
-        .btn-skip:hover { background-color: #777777; }
-        #status { margin-top: 20px; color: #1DB954; font-size: 1.1rem; font-weight: bold; text-align: center; line-height: 1.6; }
     </style>
 </head>
 <body>
 
-    <h1>PIRADIO</h1>
-    <p>Dit on-demand radioprogram</p>
-    
-    <button class="btn" id="startBtn">LOG IND MED SPOTIFY</button>
-    <div id="status">Gør klar til udsendelse...</div>
+    <div class="container">
+        <h1>Velkommen til min Radio</h1>
+        <p>Tryk på Play herunder for at lytte med:</p>
 
-    <script>
-        const CLIENT_ID = '2380f59802134fd89e665f1966cab9b4'; 
-        const REDIRECT_URI = 'https://papasunrise.github.io/piradio/';
-        
-        const PLAYLIST = [
-            { type: 'speak', url: 'speak_1.mp3' },
-            { type: 'track', uri: 'spotify:track:2cfmjFK51sBubowSigw5f8' },
-            { type: 'speak', url: 'speak_2.mp3' },
-            { type: 'track', uri: 'spotify:track:1PMIoBJ52Ii6uRmvKeHVCY' },
-            { type: 'speak', url: 'speak_3.mp3' },
-            { type: 'track', uri: 'spotify:track:3YccWppckhAki39U29Eyrv' },
-            { type: 'speak', url: 'speak_4.mp3' }
-        ];
+        <iframe 
+            src="https://open.spotify.com/embed/playlist/DIN_PLAYLIST_URL_HER?utm_source=generator&theme=0" 
+            width="100%" 
+            height="352" 
+            frameBorder="0" 
+            allowfullscreen="" 
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+            loading="lazy">
+        </iframe>
+    </div>
 
-        let currentIndex = 0;
-        const startBtn = document.getElementById('startBtn');
-        const statusDiv = document.getElementById('status');
-        
-        let audioPlayer = new Audio();
-        let accessToken = '';
-
-        function generateRandomString(length) {
-            let text = '';
-            let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            for (let i = 0; i < length; i++) {
-                text += possible.charAt(Math.floor(Math.random() * possible.length));
-            }
-            return text;
-        }
-
-        async function generateCodeChallenge(codeVerifier) {
-            function base64urlencode(a) {
-                return btoa(String.fromCharCode.apply(null, new Uint8Array(a)))
-                    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            }
-            const encoder = new TextEncoder();
-            const data = encoder.encode(codeVerifier);
-            const digest = await window.crypto.subtle.digest('SHA-256', data);
-            return base64urlencode(digest);
-        }
-
-        async function tjekSpotifyForbindelse() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-
-            if (sessionStorage.getItem('spotify_access_token')) {
-                accessToken = sessionStorage.getItem('spotify_access_token');
-                statusDiv.innerText = "Forbindelse intakt! Klar til at køre.";
-                startBtn.innerText = "AFSPIL NU";
-                return;
-            }
-
-            if (code) {
-                statusDiv.innerText = "Henter adgang fra Spotify...";
-                let codeVerifier = localStorage.getItem('code_verifier');
-
-                let body = new URLSearchParams({
-                    grant_type: 'authorization_code',
-                    code: code,
-                    redirect_uri: REDIRECT_URI,
-                    client_id: CLIENT_ID,
-                    code_verifier: codeVerifier
-                });
-
-                try {
-                    const response = await fetch('https://accounts.spotify.com/api/token', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: body
-                    });
-                    const data = await response.json();
-                    
-                    if (data.access_token) {
-                        accessToken = data.access_token;
-                        sessionStorage.setItem('spotify_access_token', accessToken);
-                        statusDiv.innerText = "Forbindelse oprettet!";
-                        startBtn.innerText = "AFSPIL NU";
-                        window.history.pushState({}, document.title, window.location.pathname);
-                    } else {
-                        statusDiv.innerText = "Spotify afviste login: " + (data.error_description || data.error);
-                    }
-                } catch (err) {
-                    statusDiv.innerText = "Netværksfejl ved hentning af token.";
-                }
-            }
-        }
-
-        tjekSpotifyForbindelse();
-
-        startBtn.addEventListener('click', async () => {
-            if (!accessToken) {
-                const codeVerifier = generateRandomString(128);
-                const codeChallenge = await generateCodeChallenge(codeVerifier);
-                localStorage.setItem('code_verifier', codeVerifier);
-                
-                const scopes = 'user-modify-playback-state user-read-playback-state';
-                const args = new URLSearchParams({
-                    response_type: 'code',
-                    client_id: CLIENT_ID,
-                    scope: scopes,
-                    redirect_uri: REDIRECT_URI,
-                    code_challenge_method: 'S256',
-                    code_challenge: codeChallenge
-                });
-                window.location = 'https://accounts.spotify.com/authorize?' + args;
-            } else {
-                startBtn.style.display = 'none'; 
-                koerNæsteTrin();
-            }
-        });
-
-        function koerNæsteTrin() {
-            if (currentIndex >= PLAYLIST.length) {
-                statusDiv.innerText = "Udsendelsen er slut. Tak fordi du lyttede med!";
-                return;
-            }
-
-            const nuværende = PLAYLIST[currentIndex];
-
-            if (nuværende.type === 'speak') {
-                statusDiv.innerHTML = `Spiller din speak (${Math.floor(currentIndex/2) + 1}/4)...<br><button class="btn btn-skip" onclick="StopOgNæste()">Spring speak over ➔</button>`;
-                
-                audioPlayer.src = nuværende.url + '?v=' + Math.random();
-                
-                if (accessToken) {
-                    fetch('https://api.spotify.com/v1/me/player/pause', {
-                        method: 'PUT',
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    });
-                }
-
-                audioPlayer.play()
-                    .then(() => {
-                        audioPlayer.onended = function() {
-                            currentIndex++;
-                            koerNæsteTrin();
-                        };
-                    })
-                    .catch(err => {
-                        statusDiv.innerHTML = "Browseren blokerede lyden.<br><button class='btn' onclick='audioPlayer.play(); koerNæsteTrin();'>Klik her for at tillade lyd</button>";
-                    });
-
-            } else if (nuværende.type === 'track') {
-                statusDiv.innerText = "Sender sang til din Spotify-app...";
-                
-                fetch('https://api.spotify.com/v1/me/player/play', {
-                    method: 'PUT',
-                    body: JSON.stringify({ uris: [nuværende.uri] }),
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                }).then(response => {
-                    if (response.status === 404) {
-                        statusDiv.innerHTML = "<span style='color: #ff4444;'>Fejl: Åbn din Spotify-app på telefonen eller PC, og tryk 'Play' på en tilfældig sang først!</span><br><button class='btn' style='padding:10px 20px; font-size:1rem; margin-top:10px;' onclick='GenskydNummer()'>Prøv igen</button>";
-                    } else if (response.status === 403) {
-                        statusDiv.innerHTML = "<span style='color: #ff4444;'>Fejl 403: Du skal bruge en Spotify Premium-konto til API-styring.</span>";
-                    } else {
-                        currentIndex++;
-                        statusDiv.innerHTML = `Hører nu musik via Spotify.<br><button class="btn" style="padding:10px 20px; font-size:1rem; margin-top:10px;" onclick='ManuelNæste()'>Klik for næste speak</button>`;
-                    }
-                });
-            }
-        }
-
-        function StopOgNæste() {
-            audioPlayer.pause();
-            currentIndex++;
-            koerNæsteTrin();
-        }
-
-        function GenskydNummer() {
-            koerNæsteTrin();
-        }
-
-        function ManuelNæste() {
-            koerNæsteTrin();
-        }
-    </script>
 </body>
 </html>
