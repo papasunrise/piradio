@@ -30,23 +30,21 @@
             transition: transform 0.2s, background-color 0.2s;
         }
         .btn:hover { transform: scale(1.05); background-color: #1ed760; }
-        #status { margin-top: 20px; color: #1DB954; font-size: 1.1rem; font-weight: bold; }
+        #status { margin-top: 20px; color: #1DB954; font-size: 1.1rem; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
 
     <h1>PIRADIO</h1>
-    <p>Dit on-demand radioprogram kører</p>
+    <p>Dit on-demand radioprogram</p>
     
-    <button class="btn" id="startBtn">START PROGRAMMET</button>
-    <div id="status">Gør klar til udsendelse...</div>
+    <button class="btn" id="startBtn">LOG IND MED SPOTIFY</button>
+    <div id="status">Venter på login...</div>
 
     <script>
-        // SPOTIFY INTEGRATION
         const CLIENT_ID = '2380f59802134fd89e665f1966cab9b4'; 
         const REDIRECT_URI = 'https://papasunrise.github.io/piradio/';
         
-        // DIN PLAYLISTE (Speaks + Spotify tracks)
         const PLAYLIST = [
             { type: 'speak', url: 'speak_1.mp3' },
             { type: 'track', uri: 'spotify:track:2cfmjFK51sBubowSigw5f8' },
@@ -64,31 +62,38 @@
         let audioPlayer = new Audio();
         let accessToken = '';
 
-        // Tjek efter Spotify Auth Code i URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-
-        if (code) {
-            statusDiv.innerText = "Logget ind via Spotify! Klar til afspilning.";
+        // Tjek URL for token efter Spotify-login
+        const hash = window.location.hash.substring(1).split('&').reduce(function (initial, item) {
+            if (item) {
+                var parts = item.split('=');
+                initial[parts[0]] = decodeURIComponent(parts[1]);
+            }
+            return initial;
+        }, {});
+        
+        // HVIS VI ER LOGGET IND:
+        if (hash.access_token) {
+            accessToken = hash.access_token;
+            window.location.hash = ""; // Ryd URL'en med det samme
+            
+            // Tving siden til at vente på et NYT klik, så lyden ikke blokeres
+            statusDiv.innerText = "Forbindelse oprettet!";
             startBtn.innerText = "AFSPIL NU";
-            sessionStorage.setItem('spotify_auth_code', code);
-            window.history.pushState({}, document.title, window.location.pathname);
         }
 
-        // Knaphåndtering
+        // Hvad sker der ved klik på den store knap?
         startBtn.addEventListener('click', () => {
-            const savedCode = sessionStorage.getItem('spotify_auth_code');
-            
-            if (!savedCode && !code) {
+            if (!accessToken) {
+                // Skridt 1: Send brugeren til Spotify for at få adgang
                 const scopes = 'user-modify-playback-state user-read-playback-state';
-                window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=code`;
+                window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&response_type=token`;
             } else {
-                startBtn.style.display = 'none'; // Skjul knap under afspilning
+                // Skridt 2: Hvis vi ER logget ind, og du klikker NU, starter programmet rent
+                startBtn.style.display = 'none'; 
                 koerNæsteTrin();
             }
         });
 
-        // Styring af radioprogrammets rækkefølge
         function koerNæsteTrin() {
             if (currentIndex >= PLAYLIST.length) {
                 statusDiv.innerText = "Udsendelsen er slut. Tak fordi du lyttede med!";
@@ -98,33 +103,33 @@
             const nuværende = PLAYLIST[currentIndex];
 
             if (nuværende.type === 'speak') {
-                // Afspil speak-fil
-                statusDiv.innerText = `Spiller speak (${currentIndex + 1}/${PLAYLIST.length})...`;
-                audioPlayer.src = nuværende.url;
+                statusDiv.innerText = `Spiller speak_${Math.floor(currentIndex/2) + 1}...`;
                 
-                // Sæt Spotify på pause imens (just in case)
-                if (accessToken) {
-                    fetch('https://api.spotify.com/v1/me/player/pause', {
-                        method: 'PUT',
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    });
-                }
-
-                audioPlayer.play().catch(err => {
-                    console.log("Afspilning fejlede, prøv igen", err);
+                // Hent filen helt frisk
+                audioPlayer.src = nuværende.url + '?v=' + Math.random();
+                
+                // Sæt Spotify på pause på din konto imens
+                fetch('https://api.spotify.com/v1/me/player/pause', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
                 });
 
-                // Gå automatisk videre når speaken er færdig
-                audioPlayer.onended = function() {
-                    currentIndex++;
-                    koerNæsteTrin();
-                };
+                audioPlayer.play()
+                    .then(() => {
+                        // Gå først videre når filen REELT er færdig med at spille
+                        audioPlayer.onended = function() {
+                            currentIndex++;
+                            koerNæsteTrin();
+                        };
+                    })
+                    .catch(err => {
+                        statusDiv.innerHTML = "Browseren blokerede lyden.<br><button class='btn' onclick='audioPlayer.play(); koerNæsteTrin();'>Klik her for at tillade lyd</button>";
+                    });
 
             } else if (nuværende.type === 'track') {
-                // Start Spotify sang
-                statusDiv.innerText = "Starter musik på Spotify...";
+                statusDiv.innerText = "Starter næste nummer på Spotify...";
                 
-                // Hvis vi mangler token (første sang), bruger vi koden. Ellers sender vi signal.
+                // Start præcis din sang
                 fetch('https://api.spotify.com/v1/me/player/play', {
                     method: 'PUT',
                     body: JSON.stringify({ uris: [nuværende.uri] }),
@@ -133,13 +138,8 @@
                         'Authorization': `Bearer ${accessToken}`
                     }
                 }).then(response => {
-                    // Vi hopper videre til næste speak i baggrunden, så den er klar
                     currentIndex++;
-                    
-                    // OBS: Da vi ikke kan vide præcis hvornår sangen slutter via et simpelt API-kald uden fuld SDK,
-                    // skal lytteren trykke på en "Næste speak"-knap, eller vi kan lade sangen køre.
-                    // For fuld automation, lader vi koden lytte efter om sangen stopper på din Spotify app.
-                    statusDiv.innerHTML = `Hører nu musik. <br><button class="btn" style="padding:10px 20px; font-size:1rem; margin-top:10px;" onclick="ManuelNæste()">Klik for næste speak</button>`;
+                    statusDiv.innerHTML = `Hører nu musik via Spotify.<br><button class="btn" style="padding:10px 20px; font-size:1rem; margin-top:10px;" onclick="ManuelNæste()">Klik for næste speak</button>`;
                 });
             }
         }
